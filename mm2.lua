@@ -7,6 +7,9 @@ local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
 local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 -- Функция для воспроизведения звука при нажатии
 local function playButtonSound()
@@ -376,6 +379,422 @@ AutoFarmLabel.Font = Enum.Font.GothamBold
 AutoFarmLabel.TextSize = 18
 
 -------------------------------------------------------------
+-- COIN AUTOFARM КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ
+-------------------------------------------------------------
+
+local CoinAutofarmContainer = Instance.new("Frame")
+CoinAutofarmContainer.Parent = AutoFarmPage
+CoinAutofarmContainer.BackgroundColor3 = Color3.fromRGB(20,20,20)
+CoinAutofarmContainer.BackgroundTransparency = 0.1
+CoinAutofarmContainer.Size = UDim2.new(1, -10, 0, 50)
+CoinAutofarmContainer.Position = UDim2.new(0, 0, 0, 40)
+
+local CoinAutofarm_Corner = Instance.new("UICorner")
+CoinAutofarm_Corner.CornerRadius = UDim.new(0, 10)
+CoinAutofarm_Corner.Parent = CoinAutofarmContainer
+
+local CoinAutofarm_Stroke = Instance.new("UIStroke")
+CoinAutofarm_Stroke.Parent = CoinAutofarmContainer
+CoinAutofarm_Stroke.Color = Color3.fromRGB(230,57,51)
+CoinAutofarm_Stroke.Thickness = 1.8
+
+-- Текст Coin Autofarm
+local CoinAutofarmLabel = Instance.new("TextLabel")
+CoinAutofarmLabel.Parent = CoinAutofarmContainer
+CoinAutofarmLabel.Size = UDim2.new(0.6, 0, 1, 0)
+CoinAutofarmLabel.Position = UDim2.new(0, 10, 0, 0)
+CoinAutofarmLabel.BackgroundTransparency = 1
+CoinAutofarmLabel.Font = Enum.Font.GothamBold
+CoinAutofarmLabel.Text = "Coin Autofarm"
+CoinAutofarmLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+CoinAutofarmLabel.TextSize = 16
+CoinAutofarmLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Переключатель Coin Autofarm
+local CoinAutofarmToggle = Instance.new("TextButton")
+CoinAutofarmToggle.Parent = CoinAutofarmContainer
+CoinAutofarmToggle.Size = UDim2.new(0, 60, 0, 30)
+CoinAutofarmToggle.Position = UDim2.new(1, -70, 0.5, -15)
+CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+CoinAutofarmToggle.BorderSizePixel = 0
+CoinAutofarmToggle.Text = "OFF"
+CoinAutofarmToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+CoinAutofarmToggle.Font = Enum.Font.GothamBold
+CoinAutofarmToggle.TextSize = 12
+CoinAutofarmToggle.AutoButtonColor = false
+
+-- Добавляем звук при нажатии на переключатель Coin Autofarm
+CoinAutofarmToggle.MouseButton1Click:Connect(function()
+    playButtonSound()
+end)
+
+local CoinAutofarmToggleCorner = Instance.new("UICorner")
+CoinAutofarmToggleCorner.CornerRadius = UDim.new(0, 15)
+CoinAutofarmToggleCorner.Parent = CoinAutofarmToggle
+
+local CoinAutofarmToggleStroke = Instance.new("UIStroke")
+CoinAutofarmToggleStroke.Parent = CoinAutofarmToggle
+CoinAutofarmToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+CoinAutofarmToggleStroke.Thickness = 2
+
+-- Добавляем необходимые сервисы
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoinCollected = ReplicatedStorage.Remotes.Gameplay.CoinCollected
+local RoundStart = ReplicatedStorage.Remotes.Gameplay.RoundStart
+local RoundEnd = ReplicatedStorage.Remotes.Gameplay.RoundEndFade
+
+-- Переменные для Coin Autofarm
+local CoinAutofarmEnabled = false
+local AutoFarmRunning = false
+local farming = true  -- Изменено: всегда true, чтобы фарм работал постоянно
+local bag_full = false
+local resetting = false
+local start_position = nil
+local farmConnection
+
+-- Функция для получения персонажа
+local function getCharacter() 
+    return Player.Character or Player.CharacterAdded:Wait() 
+end
+
+-- Функция для получения HumanoidRootPart
+local function getHRP() 
+    local character = getCharacter()
+    return character:WaitForChild("HumanoidRootPart")
+end
+
+-- Обработчик сбора монет С БАГОМ (ждет новый раунд)
+-- CoinCollected.OnClientEvent:Connect(function(_, current, max)
+--     if current == max and not resetting and AutoResetEnabled then
+--         resetting = true
+--         bag_full = true
+--         local hrp = getHRP()
+--         if start_position then
+--             local tween = TweenService:Create(hrp, TweenInfo.new(2, Enum.EasingStyle.Linear), {CFrame = start_position})
+--             tween:Play()
+--             tween.Completed:Wait()
+--         end
+--         task.wait(0.5)
+--         Player.Character.Humanoid.Health = 0
+--         Player.CharacterAdded:Wait()
+--         task.wait(1.5)
+--         resetting = false
+--         bag_full = false
+--         -- ПРОБЛЕМА: здесь farming должно оставаться true, но в примере RoundEnd делает его false
+--     end
+-- end)
+
+-- ИСПРАВЛЕННЫЙ Обработчик сбора монет (продолжает фармить после смерти)
+CoinCollected.OnClientEvent:Connect(function(_, current, max)
+    if current == max and not resetting and AutoResetEnabled then
+        resetting = true
+        bag_full = true
+        
+        print("Сумка заполнена! Выполняем Auto Reset...")
+        
+        -- Запоминаем позицию для возврата
+        local character = Player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            start_position = character.HumanoidRootPart.CFrame
+        end
+        
+        -- Возвращаемся на стартовую позицию
+        if start_position then
+            local hrp = getHRP()
+            local tween = TweenService:Create(hrp, TweenInfo.new(2, Enum.EasingStyle.Linear), {CFrame = start_position})
+            tween:Play()
+            tween.Completed:Wait()
+        end
+        
+        task.wait(0.5)
+        
+        -- Умираем
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+            Player.Character.Humanoid.Health = 0
+        end
+        
+        -- Ждем появления нового персонажа
+        Player.CharacterAdded:Wait()
+        task.wait(2)  -- Даем время на загрузку
+        
+        resetting = false
+        bag_full = false
+        
+        print("Auto Reset завершен! Продолжаем фарм...")
+        -- farming остается true - продолжаем фармить
+    end
+end)
+
+-- Обработчик начала раунда (сохраняем стартовую позицию)
+RoundStart.OnClientEvent:Connect(function()
+    farming = true
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        start_position = Player.Character.HumanoidRootPart.CFrame
+        print("Раунд начался! Стартовая позиция сохранена.")
+    end
+end)
+
+-- ИСПРАВЛЕНО: Не останавливаем фарм при окончании раунда
+-- RoundEnd.OnClientEvent:Connect(function()
+--     farming = false  -- ЭТО БЫЛА ОШИБКА
+-- end)
+
+-- Функция для поиска ближайшей монеты
+local function get_nearest_coin()
+    local character = Player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then
+        return nil, math.huge
+    end
+    
+    local hrp = character.HumanoidRootPart
+    local closest, dist = nil, math.huge
+    
+    for _, m in pairs(Workspace:GetChildren()) do
+        if m:FindFirstChild("CoinContainer") then
+            for _, coin in pairs(m.CoinContainer:GetChildren()) do
+                if coin:IsA("BasePart") and coin:FindFirstChild("TouchInterest") then
+                    local d = (hrp.Position - coin.Position).Magnitude
+                    if d < dist then 
+                        closest, dist = coin, d 
+                    end
+                end
+            end
+        end
+    end
+    return closest, dist
+end
+
+-- Основная функция автофарма
+local function StartAutoFarm()
+    if AutoFarmRunning then return end
+    
+    AutoFarmRunning = true
+    farming = true  -- Убеждаемся что farming включен
+    
+    print("Auto Farm запущен!")
+    
+    farmConnection = task.spawn(function()
+        while CoinAutofarmEnabled and AutoFarmRunning do
+            if farming and not bag_full then
+                local coin, dist = get_nearest_coin()
+                if coin then
+                    local character = Player.Character
+                    if not character or not character:FindFirstChild("HumanoidRootPart") then
+                        task.wait(0.5)
+                        continue
+                    end
+                    
+                    local hrp = character.HumanoidRootPart
+                    if dist > 150 then
+                        -- Телепортируемся если далеко
+                        hrp.CFrame = coin.CFrame
+                        print("Телепортация к монете (далеко)")
+                    else
+                        -- Плавно двигаемся к монете
+                        print("Движение к монете (расстояние: " .. math.floor(dist) .. ")")
+                        local tween = TweenService:Create(hrp, TweenInfo.new(dist / 20, Enum.EasingStyle.Linear), {CFrame = coin.CFrame})
+                        tween:Play()
+                        
+                        -- Ждем пока монета не будет собрана
+                        local maxWaitTime = 5  -- Максимальное время ожидания
+                        local startTime = tick()
+                        
+                        while coin:FindFirstChild("TouchInterest") and farming and CoinAutofarmEnabled and not bag_full do
+                            if tick() - startTime > maxWaitTime then
+                                break  -- Выход если слишком долго ждем
+                            end
+                            task.wait(0.1)
+                        end
+                        
+                        if tween.PlaybackState == Enum.PlaybackState.Playing then
+                            tween:Cancel()
+                        end
+                    end
+                else
+                    print("Монеты не найдены...")
+                end
+            elseif bag_full then
+                print("Сумка заполнена, ожидание Auto Reset...")
+            end
+            task.wait(0.2)
+        end
+        print("Auto Farm остановлен.")
+    end)
+end
+
+-- Функция остановки автофарма
+local function StopAutoFarm()
+    AutoFarmRunning = false
+    
+    if farmConnection then
+        task.cancel(farmConnection)
+        farmConnection = nil
+    end
+    
+    farming = false
+    bag_full = false
+    resetting = false
+    print("Auto Farm выключен")
+end
+
+-- Обработчик переключателя Coin Autofarm
+CoinAutofarmToggle.MouseButton1Click:Connect(function()
+    CoinAutofarmEnabled = not CoinAutofarmEnabled
+    
+    if CoinAutofarmEnabled then
+        CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
+        CoinAutofarmToggle.Text = "ON"
+        CoinAutofarmToggleStroke.Color = Color3.fromRGB(200, 50, 47)
+        
+        -- Включаем автофарм
+        StartAutoFarm()
+        print("Coin Autofarm включен")
+    else
+        CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        CoinAutofarmToggle.Text = "OFF"
+        CoinAutofarmToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+        
+        -- Выключаем автофарм
+        StopAutoFarm()
+        print("Coin Autofarm выключен")
+    end
+end)
+
+-- Обработчик Anti-AFK
+Player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Эффекты при наведении на переключатель
+CoinAutofarmToggle.MouseEnter:Connect(function()
+    if not CoinAutofarmEnabled then
+        CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end
+end)
+
+CoinAutofarmToggle.MouseLeave:Connect(function()
+    if not CoinAutofarmEnabled then
+        CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-- Очистка при переподключении персонажа
+Player.CharacterAdded:Connect(function(character)
+    task.wait(1) -- Ждем загрузки персонажа
+    
+    if CoinAutofarmEnabled and AutoFarmRunning then
+        print("Новый персонаж загружен, продолжаем фарм...")
+        -- farming остается true - продолжаем фармить
+    end
+end)
+
+-- Очистка при выходе
+game:GetService("UserInputService").WindowFocusReleased:Connect(function()
+    if CoinAutofarmEnabled then
+        StopAutoFarm()
+    end
+end)
+
+game:GetService("UserInputService").WindowFocused:Connect(function()
+    if CoinAutofarmEnabled and not AutoFarmRunning then
+        StartAutoFarm()
+    end
+end)
+
+-------------------------------------------------------------
+-- AUTO RESET TO FULL КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ
+-------------------------------------------------------------
+
+local AutoResetContainer = Instance.new("Frame")
+AutoResetContainer.Parent = AutoFarmPage
+AutoResetContainer.BackgroundColor3 = Color3.fromRGB(20,20,20)
+AutoResetContainer.BackgroundTransparency = 0.1
+AutoResetContainer.Size = UDim2.new(1, -10, 0, 50)
+AutoResetContainer.Position = UDim2.new(0, 0, 0, 100)
+
+local AutoReset_Corner = Instance.new("UICorner")
+AutoReset_Corner.CornerRadius = UDim.new(0, 10)
+AutoReset_Corner.Parent = AutoResetContainer
+
+local AutoReset_Stroke = Instance.new("UIStroke")
+AutoReset_Stroke.Parent = AutoResetContainer
+AutoReset_Stroke.Color = Color3.fromRGB(230,57,51)
+AutoReset_Stroke.Thickness = 1.8
+
+-- Текст Auto Reset to Full
+local AutoResetLabel = Instance.new("TextLabel")
+AutoResetLabel.Parent = AutoResetContainer
+AutoResetLabel.Size = UDim2.new(0.6, 0, 1, 0)
+AutoResetLabel.Position = UDim2.new(0, 10, 0, 0)
+AutoResetLabel.BackgroundTransparency = 1
+AutoResetLabel.Font = Enum.Font.GothamBold
+AutoResetLabel.Text = "Auto Reset"
+AutoResetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoResetLabel.TextSize = 16
+AutoResetLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Переключатель Auto Reset to Full
+local AutoResetToggle = Instance.new("TextButton")
+AutoResetToggle.Parent = AutoResetContainer
+AutoResetToggle.Size = UDim2.new(0, 60, 0, 30)
+AutoResetToggle.Position = UDim2.new(1, -70, 0.5, -15)
+AutoResetToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AutoResetToggle.BorderSizePixel = 0
+AutoResetToggle.Text = "OFF"
+AutoResetToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoResetToggle.Font = Enum.Font.GothamBold
+AutoResetToggle.TextSize = 12
+AutoResetToggle.AutoButtonColor = false
+
+-- Добавляем звук при нажатии на переключатель Auto Reset
+AutoResetToggle.MouseButton1Click:Connect(function()
+    playButtonSound()
+end)
+
+local AutoResetToggleCorner = Instance.new("UICorner")
+AutoResetToggleCorner.CornerRadius = UDim.new(0, 15)
+AutoResetToggleCorner.Parent = AutoResetToggle
+
+local AutoResetToggleStroke = Instance.new("UIStroke")
+AutoResetToggleStroke.Parent = AutoResetToggle
+AutoResetToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+AutoResetToggleStroke.Thickness = 2
+
+-- Переменная для состояния Auto Reset to Full
+local AutoResetEnabled = false
+
+-- Обработчик переключателя Auto Reset to Full
+AutoResetToggle.MouseButton1Click:Connect(function()
+    AutoResetEnabled = not AutoResetEnabled
+    
+    if AutoResetEnabled then
+        AutoResetToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
+        AutoResetToggle.Text = "ON"
+        AutoResetToggleStroke.Color = Color3.fromRGB(200, 50, 47)
+        print("Auto Reset включен")
+    else
+        AutoResetToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        AutoResetToggle.Text = "OFF"
+        AutoResetToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+        print("Auto Reset выключен")
+    end
+end)
+
+-- Эффекты при наведении на переключатель
+AutoResetToggle.MouseEnter:Connect(function()
+    if not AutoResetEnabled then
+        AutoResetToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end
+end)
+
+AutoResetToggle.MouseLeave:Connect(function()
+    if not AutoResetEnabled then
+        AutoResetToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-------------------------------------------------------------
 -- ESP HIGHLIGHT КОНТЕЙНЕР В VISUAL ВКЛАДКЕ
 -------------------------------------------------------------
 
@@ -419,11 +838,8 @@ local HeroEnabled = true
 
 -- > Declarations < --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local LP = Players.LocalPlayer
 local roles
-local Murder, Sheriff, Hero
 
 -- > Functions <--
 function CreateHighlight()
@@ -449,37 +865,40 @@ function UpdateHighlights()
             -- Сначала скрываем всех
             Highlight.Enabled = false
             
-            -- Показываем только выбранные роли с правильной логикой
-            if MurderEnabled and v.Name == Murder and IsAlive(v) then
-                Highlight.Enabled = true
-                Highlight.FillColor = Color3.fromRGB(225, 0, 0)
-            elseif SheriffEnabled and v.Name == Sheriff and IsAlive(v) then
-                Highlight.Enabled = true
-                Highlight.FillColor = Color3.fromRGB(0, 0, 225)
-            elseif HeroEnabled and v.Name == Hero and IsAlive(v) then
-                -- Герой показывается только если шериф мертв
-                if Sheriff and not IsAlive(game.Players[Sheriff]) then
-                    Highlight.Enabled = true
-                    Highlight.FillColor = Color3.fromRGB(255, 250, 0)
+            -- Проверяем роли и показываем соответствующих игроков
+            if roles then
+                local playerData = roles[v.Name]
+                if playerData then
+                    local role = playerData.Role
+                    local isAlive = not (playerData.Killed or playerData.Dead)
+                    
+                    if isAlive then
+                        if MurderEnabled and role == "Murderer" then
+                            Highlight.Enabled = true
+                            Highlight.FillColor = Color3.fromRGB(225, 0, 0)
+                        elseif SheriffEnabled and role == "Sheriff" then
+                            Highlight.Enabled = true
+                            Highlight.FillColor = Color3.fromRGB(0, 0, 225)
+                        elseif HeroEnabled and role == "Hero" then
+                            -- Герой показывается сразу при включении опции, не ждем смерти шерифа
+                            Highlight.Enabled = true
+                            Highlight.FillColor = Color3.fromRGB(255, 250, 0)
+                        elseif InnocentEnabled and role == "Innocent" then
+                            Highlight.Enabled = true
+                            Highlight.FillColor = Color3.fromRGB(0, 225, 0)
+                        end
+                    end
                 end
-            elseif InnocentEnabled and v.Name ~= Murder and v.Name ~= Sheriff and v.Name ~= Hero and IsAlive(v) then
-                Highlight.Enabled = true
-                Highlight.FillColor = Color3.fromRGB(0, 225, 0)
             end
         end
     end
 end
 
-function IsAlive(Player)
+function IsAlive(player)
     if not roles then return false end
-    for i, v in pairs(roles) do
-        if Player.Name == i then
-            if not v.Killed and not v.Dead then
-                return true
-            else
-                return false
-            end
-        end
+    local playerData = roles[player.Name]
+    if playerData then
+        return not (playerData.Killed or playerData.Dead)
     end
     return false
 end
@@ -664,15 +1083,6 @@ ESPConnection = RunService.RenderStepped:Connect(function()
     if EspEnabled then
         pcall(function()
             roles = ReplicatedStorage:FindFirstChild("GetPlayerData", true):InvokeServer()
-            for i, v in pairs(roles) do
-                if v.Role == "Murderer" then
-                    Murder = i
-                elseif v.Role == 'Sheriff'then
-                    Sheriff = i
-                elseif v.Role == 'Hero'then
-                    Hero = i
-                end
-            end
             CreateHighlight()
             UpdateHighlights()
         end)
@@ -685,6 +1095,290 @@ Players.PlayerRemoving:Connect(function(player)
         player.Character.ShadowHighlight:Destroy()
     end
 end)
+
+-------------------------------------------------------------
+-- GUNDROP ESP КОНТЕЙНЕР В VISUAL ВКЛАДКЕ
+-------------------------------------------------------------
+
+-- Контейнер для GunDrop Esp
+local GunDropEspContainer = Instance.new("Frame")
+GunDropEspContainer.Parent = VisualPage
+GunDropEspContainer.BackgroundColor3 = Color3.fromRGB(20,20,20)
+GunDropEspContainer.BackgroundTransparency = 0.1
+GunDropEspContainer.Size = UDim2.new(1, -10, 0, 100)
+GunDropEspContainer.Position = UDim2.new(0, 0, 0, 290)  -- Расположен под ESP Highlight контейнером
+
+local GunDropEsp_Corner = Instance.new("UICorner")
+GunDropEsp_Corner.CornerRadius = UDim.new(0, 10)
+GunDropEsp_Corner.Parent = GunDropEspContainer
+
+local GunDropEsp_Stroke = Instance.new("UIStroke")
+GunDropEsp_Stroke.Parent = GunDropEspContainer
+GunDropEsp_Stroke.Color = Color3.fromRGB(230,57,51)
+GunDropEsp_Stroke.Thickness = 1.8
+
+-- Заголовок GunDrop Esp
+local GunDropEspLabel = Instance.new("TextLabel")
+GunDropEspLabel.Parent = GunDropEspContainer
+GunDropEspLabel.Size = UDim2.new(1, -20, 0, 30)
+GunDropEspLabel.Position = UDim2.new(0, 10, 0, 0)
+GunDropEspLabel.BackgroundTransparency = 1
+GunDropEspLabel.Font = Enum.Font.GothamBold
+GunDropEspLabel.Text = "GunDrop Esp"
+GunDropEspLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunDropEspLabel.TextSize = 16
+GunDropEspLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Переменные для GunDrop ESP
+local GunDropHighlightEnabled = false
+local GunDropEspEnabled = false
+
+-- Создаем переключатель GunDrop Highlight
+local GunDropHighlightContainer = Instance.new("Frame")
+GunDropHighlightContainer.Parent = GunDropEspContainer
+GunDropHighlightContainer.BackgroundColor3 = Color3.fromRGB(25,25,25)
+GunDropHighlightContainer.BackgroundTransparency = 0.1
+GunDropHighlightContainer.Size = UDim2.new(1, -20, 0, 25)
+GunDropHighlightContainer.Position = UDim2.new(0, 10, 0, 35)
+
+local GunDropHighlight_Corner = Instance.new("UICorner")
+GunDropHighlight_Corner.CornerRadius = UDim.new(0, 6)
+GunDropHighlight_Corner.Parent = GunDropHighlightContainer
+
+local GunDropHighlight_Stroke = Instance.new("UIStroke")
+GunDropHighlight_Stroke.Parent = GunDropHighlightContainer
+GunDropHighlight_Stroke.Color = Color3.fromRGB(60,60,60)
+GunDropHighlight_Stroke.Thickness = 1
+
+local GunDropHighlightLabel = Instance.new("TextLabel")
+GunDropHighlightLabel.Parent = GunDropHighlightContainer
+GunDropHighlightLabel.Size = UDim2.new(0.7, 0, 1, 0)
+GunDropHighlightLabel.Position = UDim2.new(0, 10, 0, 0)
+GunDropHighlightLabel.BackgroundTransparency = 1
+GunDropHighlightLabel.Font = Enum.Font.GothamBold
+GunDropHighlightLabel.Text = "GunDrop Highlight"
+GunDropHighlightLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunDropHighlightLabel.TextSize = 13
+GunDropHighlightLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local GunDropHighlightToggle = Instance.new("TextButton")
+GunDropHighlightToggle.Parent = GunDropHighlightContainer
+GunDropHighlightToggle.Size = UDim2.new(0, 50, 0, 20)
+GunDropHighlightToggle.Position = UDim2.new(1, -60, 0.5, -10)
+GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+GunDropHighlightToggle.BorderSizePixel = 0
+GunDropHighlightToggle.Text = "OFF"
+GunDropHighlightToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunDropHighlightToggle.Font = Enum.Font.GothamBold
+GunDropHighlightToggle.TextSize = 11
+GunDropHighlightToggle.AutoButtonColor = false
+
+-- Добавляем звук при нажатии на переключатель GunDrop Highlight
+GunDropHighlightToggle.MouseButton1Click:Connect(function()
+    playButtonSound()
+end)
+
+local GunDropHighlightToggleCorner = Instance.new("UICorner")
+GunDropHighlightToggleCorner.CornerRadius = UDim.new(0, 10)
+GunDropHighlightToggleCorner.Parent = GunDropHighlightToggle
+
+local GunDropHighlightToggleStroke = Instance.new("UIStroke")
+GunDropHighlightToggleStroke.Parent = GunDropHighlightToggle
+GunDropHighlightToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+GunDropHighlightToggleStroke.Thickness = 2
+
+-- Создаем переключатель GunDrop Esp
+local GunDropEspToggleContainer = Instance.new("Frame")
+GunDropEspToggleContainer.Parent = GunDropEspContainer
+GunDropEspToggleContainer.BackgroundColor3 = Color3.fromRGB(25,25,25)
+GunDropEspToggleContainer.BackgroundTransparency = 0.1
+GunDropEspToggleContainer.Size = UDim2.new(1, -20, 0, 25)
+GunDropEspToggleContainer.Position = UDim2.new(0, 10, 0, 65)
+
+local GunDropEspToggle_Corner = Instance.new("UICorner")
+GunDropEspToggle_Corner.CornerRadius = UDim.new(0, 6)
+GunDropEspToggle_Corner.Parent = GunDropEspToggleContainer
+
+local GunDropEspToggle_Stroke = Instance.new("UIStroke")
+GunDropEspToggle_Stroke.Parent = GunDropEspToggleContainer
+GunDropEspToggle_Stroke.Color = Color3.fromRGB(60,60,60)
+GunDropEspToggle_Stroke.Thickness = 1
+
+local GunDropEspToggleLabel = Instance.new("TextLabel")
+GunDropEspToggleLabel.Parent = GunDropEspToggleContainer
+GunDropEspToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+GunDropEspToggleLabel.Position = UDim2.new(0, 10, 0, 0)
+GunDropEspToggleLabel.BackgroundTransparency = 1
+GunDropEspToggleLabel.Font = Enum.Font.GothamBold
+GunDropEspToggleLabel.Text = "GunDrop Esp"
+GunDropEspToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunDropEspToggleLabel.TextSize = 13
+GunDropEspToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local GunDropEspToggle = Instance.new("TextButton")
+GunDropEspToggle.Parent = GunDropEspToggleContainer
+GunDropEspToggle.Size = UDim2.new(0, 50, 0, 20)
+GunDropEspToggle.Position = UDim2.new(1, -60, 0.5, -10)
+GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+GunDropEspToggle.BorderSizePixel = 0
+GunDropEspToggle.Text = "OFF"
+GunDropEspToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+GunDropEspToggle.Font = Enum.Font.GothamBold
+GunDropEspToggle.TextSize = 11
+GunDropEspToggle.AutoButtonColor = false
+
+-- Добавляем звук при нажатии на переключатель GunDrop Esp
+GunDropEspToggle.MouseButton1Click:Connect(function()
+    playButtonSound()
+end)
+
+local GunDropEspToggleCorner = Instance.new("UICorner")
+GunDropEspToggleCorner.CornerRadius = UDim.new(0, 10)
+GunDropEspToggleCorner.Parent = GunDropEspToggle
+
+local GunDropEspToggleStroke = Instance.new("UIStroke")
+GunDropEspToggleStroke.Parent = GunDropEspToggle
+GunDropEspToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+GunDropEspToggleStroke.Thickness = 2
+
+-- Функции для GunDrop ESP
+local function EnableGunDropHighlight()
+    -- Здесь добавьте логику для GunDrop Highlight
+    print("GunDrop Highlight включен")
+    
+    GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
+    GunDropHighlightToggle.Text = "ON"
+    GunDropHighlightToggleStroke.Color = Color3.fromRGB(200, 50, 47)
+end
+
+local function DisableGunDropHighlight()
+    -- Здесь добавьте логику для отключения GunDrop Highlight
+    print("GunDrop Highlight выключен")
+    
+    GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    GunDropHighlightToggle.Text = "OFF"
+    GunDropHighlightToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+end
+
+local function EnableGunDropEsp()
+    -- Здесь добавьте логику для GunDrop Esp
+    print("GunDrop Esp включен")
+    
+    GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
+    GunDropEspToggle.Text = "ON"
+    GunDropEspToggleStroke.Color = Color3.fromRGB(200, 50, 47)
+end
+
+local function DisableGunDropEsp()
+    -- Здесь добавьте логику для отключения GunDrop Esp
+    print("GunDrop Esp выключен")
+    
+    GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    GunDropEspToggle.Text = "OFF"
+    GunDropEspToggleStroke.Color = Color3.fromRGB(100, 100, 100)
+end
+
+-- Обработчики для переключателей GunDrop Highlight
+GunDropHighlightToggle.MouseButton1Click:Connect(function()
+    GunDropHighlightEnabled = not GunDropHighlightEnabled
+    
+    if GunDropHighlightEnabled then
+        EnableGunDropHighlight()
+    else
+        DisableGunDropHighlight()
+    end
+end)
+
+-- Эффекты при наведении на переключатель GunDrop Highlight
+GunDropHighlightToggle.MouseEnter:Connect(function()
+    if not GunDropHighlightEnabled then
+        GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end
+end)
+
+GunDropHighlightToggle.MouseLeave:Connect(function()
+    if not GunDropHighlightEnabled then
+        GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-- Обработчики для переключателей GunDrop Esp
+GunDropEspToggle.MouseButton1Click:Connect(function()
+    GunDropEspEnabled = not GunDropEspEnabled
+    
+    if GunDropEspEnabled then
+        EnableGunDropEsp()
+    else
+        DisableGunDropEsp()
+    end
+end)
+
+-- Эффекты при наведении на переключатель GunDrop Esp
+GunDropEspToggle.MouseEnter:Connect(function()
+    if not GunDropEspEnabled then
+        GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end
+end)
+
+GunDropEspToggle.MouseLeave:Connect(function()
+    if not GunDropEspEnabled then
+        GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-------------------------------------------------------------
+-- COMBAT ВКЛАДКА (добавляем только сообщение Soon)
+-------------------------------------------------------------
+
+local CombatPage = TabPages["Combat"]
+
+local CombatSoonLabel = Instance.new("TextLabel")
+CombatSoonLabel.Parent = CombatPage
+CombatSoonLabel.Size = UDim2.new(1, -10, 1, -50)
+CombatSoonLabel.Position = UDim2.new(0, 5, 0, 40)
+CombatSoonLabel.BackgroundTransparency = 1
+CombatSoonLabel.Font = Enum.Font.GothamBold
+CombatSoonLabel.Text = "Combat Features\nComing Soon"
+CombatSoonLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+CombatSoonLabel.TextSize = 24
+CombatSoonLabel.TextTransparency = 0.3
+CombatSoonLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+-------------------------------------------------------------
+-- EMOTES ВКЛАДКА (добавляем только сообщение Soon)
+-------------------------------------------------------------
+
+local EmotesPage = TabPages["Emotes"]
+
+local EmotesSoonLabel = Instance.new("TextLabel")
+EmotesSoonLabel.Parent = EmotesPage
+EmotesSoonLabel.Size = UDim2.new(1, -10, 1, -50)
+EmotesSoonLabel.Position = UDim2.new(0, 5, 0, 40)
+EmotesSoonLabel.BackgroundTransparency = 1
+EmotesSoonLabel.Font = Enum.Font.GothamBold
+EmotesSoonLabel.Text = "Emotes Features\nComing Soon"
+EmotesSoonLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+EmotesSoonLabel.TextSize = 24
+EmotesSoonLabel.TextTransparency = 0.3
+EmotesSoonLabel.TextYAlignment = Enum.TextYAlignment.Center
+
+-------------------------------------------------------------
+-- TELEPORT ВКЛАДКА (добавляем только сообщение Soon)
+-------------------------------------------------------------
+
+local TeleportPage = TabPages["Teleport"]
+
+local TeleportSoonLabel = Instance.new("TextLabel")
+TeleportSoonLabel.Parent = TeleportPage
+TeleportSoonLabel.Size = UDim2.new(1, -10, 1, -50)
+TeleportSoonLabel.Position = UDim2.new(0, 5, 0, 40)
+TeleportSoonLabel.BackgroundTransparency = 1
+TeleportSoonLabel.Font = Enum.Font.GothamBold
+TeleportSoonLabel.Text = "Teleport Features\nComing Soon"
+TeleportSoonLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+TeleportSoonLabel.TextSize = 24
+TeleportSoonLabel.TextTransparency = 0.3
+TeleportSoonLabel.TextYAlignment = Enum.TextYAlignment.Center
 
 -------------------------------------------------------------
 -- MISC РАЗДЕЛ С ANTI AFK, REJOIN И SERVER HOP
