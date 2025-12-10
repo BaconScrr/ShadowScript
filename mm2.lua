@@ -569,7 +569,6 @@ CoinAutofarmToggle.MouseButton1Click:Connect(function()
         
         -- Включаем автофарм
         StartAutoFarm()
-        print("Coin Autofarm включен")
     else
         CoinAutofarmToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         CoinAutofarmToggle.Text = "OFF"
@@ -577,7 +576,6 @@ CoinAutofarmToggle.MouseButton1Click:Connect(function()
         
         -- Выключаем автофарм
         StopAutoFarm()
-        print("Coin Autofarm выключен")
     end
 end)
 
@@ -697,12 +695,10 @@ AutoResetToggle.MouseButton1Click:Connect(function()
         AutoResetToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
         AutoResetToggle.Text = "ON"
         AutoResetToggleStroke.Color = Color3.fromRGB(200, 50, 47)
-        print("Auto Reset to Full включен")
     else
         AutoResetToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         AutoResetToggle.Text = "OFF"
         AutoResetToggleStroke.Color = Color3.fromRGB(100, 100, 100)
-        print("Auto Reset to Full выключен")
     end
 end)
 
@@ -1169,7 +1165,6 @@ GunDropEspToggleStroke.Thickness = 2
 -- Функции для GunDrop ESP
 local function EnableGunDropHighlight()
     -- Здесь добавьте логику для GunDrop Highlight
-    print("GunDrop Highlight включен")
     
     GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
     GunDropHighlightToggle.Text = "ON"
@@ -1178,7 +1173,6 @@ end
 
 local function DisableGunDropHighlight()
     -- Здесь добавьте логику для отключения GunDrop Highlight
-    print("GunDrop Highlight выключен")
     
     GunDropHighlightToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     GunDropHighlightToggle.Text = "OFF"
@@ -1187,7 +1181,6 @@ end
 
 local function EnableGunDropEsp()
     -- Здесь добавьте логику для GunDrop Esp
-    print("GunDrop Esp включен")
     
     GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
     GunDropEspToggle.Text = "ON"
@@ -1196,7 +1189,6 @@ end
 
 local function DisableGunDropEsp()
     -- Здесь добавьте логику для отключения GunDrop Esp
-    print("GunDrop Esp выключен")
     
     GunDropEspToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     GunDropEspToggle.Text = "OFF"
@@ -1450,7 +1442,6 @@ local function RejoinGame()
     end)
     
     if not success then
-        warn("Rejoin failed: " .. tostring(error))
         RejoinButton.Text = "Rejoin Server"
     end
 end
@@ -1479,15 +1470,12 @@ local function ServerHop()
             end)
             
             if not teleportSuccess then
-                warn("Server hop failed: " .. tostring(teleportError))
                 ServerHopButton.Text = "Server Hop"
             end
         else
-            warn("No available servers found for server hop")
             ServerHopButton.Text = "Server Hop"
         end
     else
-        warn("Failed to get server list")
         ServerHopButton.Text = "Server Hop"
     end
 end
