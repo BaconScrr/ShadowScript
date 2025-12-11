@@ -10,6 +10,19 @@ local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Получение ссылок на удаленные события
+local CoinCollected = ReplicatedStorage.Remotes.Gameplay.CoinCollected
+local RoundStart = ReplicatedStorage.Remotes.Gameplay.RoundStart
+local RoundEnd = ReplicatedStorage.Remotes.Gameplay.RoundEndFade
+
+-- Переменные управления авто-ресетом
+local autoResetEnabled = false -- Основной флаг включения авто-ресета
+local bag_full = false -- Флаг заполнения мешка (макс количество монет)
+local resetting = false -- Флаг выполнения процесса ресета
+local start_position = nil -- Стартовая позиция персонажа
+local farming = false -- Флаг фарминга
 
 -- Функция для воспроизведения звука при нажатии
 local function playButtonSound()
@@ -379,7 +392,78 @@ AutoFarmLabel.Font = Enum.Font.GothamBold
 AutoFarmLabel.TextSize = 18
 
 -------------------------------------------------------------
--- COIN AUTOFARM КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ (ИСПРАВЛЕННАЯ ЛОГИКА)
+-- ФУНКЦИИ ДЛЯ АВТО-РЕСЕТА
+-------------------------------------------------------------
+
+-- Функция для получения персонажа
+local function getCharacter() 
+    return Player.Character or Player.CharacterAdded:Wait() 
+end
+
+-- Функция для получения HumanoidRootPart
+local function getHRP() 
+    local character = getCharacter()
+    return character:WaitForChild("HumanoidRootPart") 
+end
+
+-- Основная логика авто-ресета
+CoinCollected.OnClientEvent:Connect(function(_, current, max)
+    -- Проверяем условия для запуска ресета:
+    -- 1. Текущее количество монет достигло максимума
+    -- 2. Авто-ресет включен в настройках
+    -- 3. Процесс ресета еще не выполняется
+    if current == max and not resetting and autoResetEnabled then
+        resetting = true -- Блокируем повторные запуски
+        bag_full = true -- Помечаем, что мешок полон
+        
+        -- Получаем текущий HRP персонажа
+        local hrp = getHRP()
+        
+        -- Если была сохранена стартовая позиция, возвращаемся к ней
+        if start_position then
+            local tween = TweenService:Create(
+                hrp, 
+                TweenInfo.new(2, Enum.EasingStyle.Linear), 
+                {CFrame = start_position}
+            )
+            tween:Play()
+            tween.Completed:Wait()
+        end
+        
+        -- Пауза перед смертью
+        task.wait(0.5)
+        
+        -- Убиваем персонажа (ресет)
+        Player.Character.Humanoid.Health = 0
+        
+        -- Ждем респавна нового персонажа
+        Player.CharacterAdded:Wait()
+        
+        -- Дополнительная пауза после респавна
+        task.wait(1.5)
+        
+        -- Сбрасываем флаги
+        resetting = false
+        bag_full = false
+    end
+end)
+
+-- Логика начала раунда
+RoundStart.OnClientEvent:Connect(function()
+    farming = true -- Включаем фарминг
+    -- Сохраняем стартовую позицию персонажа в начале раунда
+    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        start_position = Player.Character.HumanoidRootPart.CFrame
+    end
+end)
+
+-- Логика конца раунда
+RoundEnd.OnClientEvent:Connect(function()
+    farming = false -- Выключаем фарминг
+end)
+
+-------------------------------------------------------------
+-- COIN AUTOFARM КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ
 -------------------------------------------------------------
 
 local CoinAutofarmContainer = Instance.new("Frame")
@@ -437,61 +521,10 @@ CoinAutofarmToggleStroke.Parent = CoinAutofarmToggle
 CoinAutofarmToggleStroke.Color = Color3.fromRGB(100, 100, 100)
 CoinAutofarmToggleStroke.Thickness = 2
 
--- Добавляем необходимые сервисы
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoinCollected = ReplicatedStorage.Remotes.Gameplay.CoinCollected
-local RoundStart = ReplicatedStorage.Remotes.Gameplay.RoundStart
-local RoundEnd = ReplicatedStorage.Remotes.Gameplay.RoundEndFade
-
 -- Переменные для Coin Autofarm
 local CoinAutofarmEnabled = false
 local AutoFarmRunning = false
-local farming = false
-local bag_full = false
-local resetting = false
-local start_position = nil
 local farmConnection
-
--- Функция для получения персонажа
-local function getCharacter() 
-    return Player.Character or Player.CharacterAdded:Wait() 
-end
-
--- Функция для получения HumanoidRootPart
-local function getHRP() 
-    return getCharacter():WaitForChild("HumanoidRootPart") 
-end
-
--- Обработчик сбора монет
-CoinCollected.OnClientEvent:Connect(function(_, current, max)
-    if current == max and not resetting and AutoResetEnabled then
-        resetting = true
-        bag_full = true
-        local hrp = getHRP()
-        if start_position then
-            local tween = TweenService:Create(hrp, TweenInfo.new(2, Enum.EasingStyle.Linear), {CFrame = start_position})
-            tween:Play()
-            tween.Completed:Wait()
-        end
-        task.wait(0.5)
-        Player.Character.Humanoid.Health = 0
-        Player.CharacterAdded:Wait()
-        task.wait(1.5)
-        resetting = false
-        bag_full = false
-    end
-end)
-
--- Обработчик начала раунда
-RoundStart.OnClientEvent:Connect(function()
-    farming = true
-    start_position = getHRP().CFrame
-end)
-
--- Обработчик конца раунда
-RoundEnd.OnClientEvent:Connect(function()
-    farming = false
-end)
 
 -- Функция для поиска ближайшей монеты
 local function get_nearest_coin()
@@ -552,10 +585,6 @@ local function StopAutoFarm()
         task.cancel(farmConnection)
         farmConnection = nil
     end
-    
-    farming = false
-    bag_full = false
-    resetting = false
 end
 
 -- Обработчик переключателя Coin Autofarm
@@ -579,12 +608,6 @@ CoinAutofarmToggle.MouseButton1Click:Connect(function()
     end
 end)
 
--- Обработчик Anti-AFK
-Player.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-end)
-
 -- Эффекты при наведении на переключатель
 CoinAutofarmToggle.MouseEnter:Connect(function()
     if not CoinAutofarmEnabled then
@@ -598,35 +621,8 @@ CoinAutofarmToggle.MouseLeave:Connect(function()
     end
 end)
 
--- Очистка при переподключении персонажа
-Player.CharacterAdded:Connect(function(character)
-    task.wait(1) -- Ждем загрузки персонажа
-    
-    if CoinAutofarmEnabled and AutoFarmRunning then
-        -- Перезапускаем фарм при появлении нового персонажа
-        StopAutoFarm()
-        task.wait(0.5)
-        if CoinAutofarmEnabled then
-            StartAutoFarm()
-        end
-    end
-end)
-
--- Очистка при выходе
-game:GetService("UserInputService").WindowFocusReleased:Connect(function()
-    if CoinAutofarmEnabled then
-        StopAutoFarm()
-    end
-end)
-
-game:GetService("UserInputService").WindowFocused:Connect(function()
-    if CoinAutofarmEnabled and not AutoFarmRunning then
-        StartAutoFarm()
-    end
-end)
-
 -------------------------------------------------------------
--- AUTO RESET TO FULL КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ
+-- AUTO RESET КОНТЕЙНЕР В AUTO FARM ВКЛАДКЕ
 -------------------------------------------------------------
 
 local AutoResetContainer = Instance.new("Frame")
@@ -645,7 +641,7 @@ AutoReset_Stroke.Parent = AutoResetContainer
 AutoReset_Stroke.Color = Color3.fromRGB(230,57,51)
 AutoReset_Stroke.Thickness = 1.8
 
--- Текст Auto Reset to Full
+-- Текст Auto Reset
 local AutoResetLabel = Instance.new("TextLabel")
 AutoResetLabel.Parent = AutoResetContainer
 AutoResetLabel.Size = UDim2.new(0.6, 0, 1, 0)
@@ -657,7 +653,7 @@ AutoResetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 AutoResetLabel.TextSize = 16
 AutoResetLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Переключатель Auto Reset to Full
+-- Переключатель Auto Reset
 local AutoResetToggle = Instance.new("TextButton")
 AutoResetToggle.Parent = AutoResetContainer
 AutoResetToggle.Size = UDim2.new(0, 60, 0, 30)
@@ -684,14 +680,11 @@ AutoResetToggleStroke.Parent = AutoResetToggle
 AutoResetToggleStroke.Color = Color3.fromRGB(100, 100, 100)
 AutoResetToggleStroke.Thickness = 2
 
--- Переменная для состояния Auto Reset to Full
-local AutoResetEnabled = false
-
--- Обработчик переключателя Auto Reset to Full
+-- Обработчик переключателя Auto Reset
 AutoResetToggle.MouseButton1Click:Connect(function()
-    AutoResetEnabled = not AutoResetEnabled
+    autoResetEnabled = not autoResetEnabled
     
-    if AutoResetEnabled then
+    if autoResetEnabled then
         AutoResetToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
         AutoResetToggle.Text = "ON"
         AutoResetToggleStroke.Color = Color3.fromRGB(200, 50, 47)
@@ -704,14 +697,55 @@ end)
 
 -- Эффекты при наведении на переключатель
 AutoResetToggle.MouseEnter:Connect(function()
-    if not AutoResetEnabled then
+    if not autoResetEnabled then
         AutoResetToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
     end
 end)
 
 AutoResetToggle.MouseLeave:Connect(function()
-    if not AutoResetEnabled then
+    if not autoResetEnabled then
         AutoResetToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-------------------------------------------------------------
+-- ОБРАБОТЧИКИ ДЛЯ АВТО-РЕСЕТА
+-------------------------------------------------------------
+
+-- Обработчик Anti-AFK
+Player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Очистка при переподключении персонажа
+Player.CharacterAdded:Connect(function(character)
+    task.wait(1) -- Ждем загрузки персонажа
+    
+    if CoinAutofarmEnabled and AutoFarmRunning then
+        -- Перезапускаем фарм при появлении нового персонажа
+        StopAutoFarm()
+        task.wait(0.5)
+        if CoinAutofarmEnabled then
+            StartAutoFarm()
+        end
+    end
+    
+    -- Сбрасываем флаги авто-ресета при новом персонаже
+    resetting = false
+    bag_full = false
+end)
+
+-- Очистка при потере фокуса окна
+game:GetService("UserInputService").WindowFocusReleased:Connect(function()
+    if CoinAutofarmEnabled then
+        StopAutoFarm()
+    end
+end)
+
+game:GetService("UserInputService").WindowFocused:Connect(function()
+    if CoinAutofarmEnabled and not AutoFarmRunning then
+        StartAutoFarm()
     end
 end)
 
@@ -758,7 +792,6 @@ local SheriffEnabled = true
 local HeroEnabled = true
 
 -- > Declarations < --
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LP = Players.LocalPlayer
 local roles
 
