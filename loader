@@ -1,0 +1,28 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local ALLOWED_PLACE_ID = 142823291
+local BLACKLIST_URL = "https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/Blacklist"
+local MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/BaconScrr/ShadowScript/refs/heads/main/mm2.lua"
+
+if game.PlaceId ~= ALLOWED_PLACE_ID then
+    LocalPlayer:Kick("the script is not for this game")
+    return
+end
+
+local success, blacklistData = pcall(function()
+    return game:HttpGet(BLACKLIST_URL)
+end)
+
+if success and blacklistData then
+    local playerName = LocalPlayer.Name:lower()
+
+    for name in string.gmatch(blacklistData, "[^\r\n]+") do
+        if name:lower() == playerName then
+            LocalPlayer:Kick("you are banned")
+            return
+        end
+    end
+end
+
+loadstring(game:HttpGet(MAIN_SCRIPT_URL))()
