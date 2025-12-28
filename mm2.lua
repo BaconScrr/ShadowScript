@@ -1,5 +1,83 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+-- Защита от ошибок Disconnect
+local function fixDisconnect()
+    -- Сохраняем оригинальные методы
+    local backup = {}
+    
+    -- Защищаем Connection:Disconnect()
+    backup.Disconnect = getrenv().Disconnect or nil
+    
+    getrenv().Disconnect = function(self, ...)
+        if self == nil then
+            return nil
+        end
+        if typeof(self) ~= "RBXScriptConnection" then
+            return nil
+        end
+        return backup.Disconnect and backup.Disconnect(self, ...)
+    end
+end
+
+-- Вызываем защиту
+pcall(fixDisconnect)
+
+-- ЗВУК ДЛЯ ВСЕХ КНОПОК (С КЭШИРОВАНИЕМ)
+local cachedSound = nil
+
+local function playButtonSound()
+    -- Пробуем воспроизвести кэшированный звук
+    if cachedSound then
+        local success = pcall(function()
+            cachedSound:Stop()
+            cachedSound.TimePosition = 0
+            cachedSound:Play()
+        end)
+        
+        if success then
+            return
+        else
+            cachedSound = nil
+        end
+    end
+    
+    -- Создаем новый звук
+    local success, sound = pcall(function()
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxassetid://140910211"
+        sound.Volume = 2.5
+        sound.Looped = false
+        
+        -- Пробуем разные родители
+        local parent = game:GetService("SoundService")
+        if not parent then
+            parent = workspace
+        end
+        
+        sound.Parent = parent
+        sound:Play()
+        return sound
+    end)
+    
+    if success and sound then
+        cachedSound = sound
+        
+        -- Автоматическая очистка если звук закончил играть
+        if sound.Loaded then
+            sound.Ended:Once(function()
+                cachedSound = nil
+            end)
+        end
+        
+        -- Резервная очистка через 2 секунды
+        task.delay(2, function()
+            if cachedSound == sound then
+                cachedSound = nil
+            end
+        end)
+    end
+end
+
 -- Службы
 local Services = {
     Players = game:GetService("Players"),
@@ -35,16 +113,6 @@ local States = {
     shootMurdererEnabled = false,
     shootMurdererFrameSize = 10  -- Размер фрейма от 5 до 20, по умолчанию 10
 }
-
--- Вспомогательные функции
-local function playButtonSound()
-    local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://140910211"
-    sound.Volume = 1.5
-    sound.Parent = Services.SoundService
-    sound:Play()
-    Services.Debris:AddItem(sound, 2)
-end
 
 -- Создание элементов интерфейса
 local function createElement(className, properties)
@@ -2703,6 +2771,38 @@ local function createGunDropButtonUI()
         end
         return false
     end
+  
+  -- Обработчик клика для круглой кнопки GunDrop
+DragFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        local clickStartTime = tick()
+        local wasDragged = false
+        local startClickPos = Frame_2.Position
+        
+        local moveConnection
+        moveConnection = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                if moveConnection then
+                    moveConnection:Disconnect()
+                end
+                local clickDuration = tick() - clickStartTime
+                
+                if clickDuration < 0.1 and not wasDragged and startClickPos == Frame_2.Position then
+                    -- ВОТ ЗДЕСЬ ДОБАВЛЯЕМ ЗВУК:
+                    playButtonSound()  -- ЗВУК ПРИ НАЖАТИИ НА КРУГЛУЮ КНОПКУ
+                    
+                    -- Выполняем действие (подбираем оружие)
+                    onGunDropClick()
+                end
+            elseif input.UserInputState == Enum.UserInputState.Change then
+                if not wasDragged then
+                    wasDragged = true
+                end
+            end
+        end)
+    end
+end)
 
     -- Обработчик клика
     DragFrame.InputBegan:Connect(function(input)
