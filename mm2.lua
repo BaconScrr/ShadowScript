@@ -520,6 +520,14 @@ local function updateSpeedSlider(value)
     -- Обновляем текст (от 1 до 200)
     local speedValue = math.floor(1 + normalizedValue * 199)
     SpeedLabel.Text = "Speed: " .. speedValue
+    
+    -- ЛОГИКА ИЗ ПРИВЕДЕННОГО КОДА: Изменяем скорость персонажа
+    if Player.Character then
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speedValue
+        end
+    end
 end
 
 local function updateJumpSlider(value)
@@ -533,6 +541,14 @@ local function updateJumpSlider(value)
     -- Обновляем текст (от 1 до 200)
     local jumpValue = math.floor(1 + normalizedValue * 199)
     JumpLabel.Text = "Jump: " .. jumpValue
+    
+    -- ЛОГИКА ИЗ ПРИВЕДЕННОГО КОДА: Изменяем прыжок персонажа
+    if Player.Character then
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = jumpValue
+        end
+    end
 end
 
 -- Переменные для отслеживания перетаскивания
@@ -721,6 +737,33 @@ jumpSliderButton.MouseLeave:Connect(function()
         jumpSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     end
 end)
+
+-- Применяем настройки при появлении нового персонажа (ЛОГИКА ИЗ ПРИВЕДЕННОГО КОДА)
+Player.CharacterAdded:Connect(function(character)
+    task.wait(0.5) -- Ждем загрузки персонажа
+    
+    -- Восстанавливаем сохраненные значения скорости и прыжка
+    local speedValue = tonumber(SpeedLabel.Text:match("%d+")) or 16
+    local jumpValue = tonumber(JumpLabel.Text:match("%d+")) or 50
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = speedValue
+        humanoid.JumpPower = jumpValue
+    end
+end)
+
+-- Инициализация текущего персонажа
+if Player.Character then
+    local speedValue = tonumber(SpeedLabel.Text:match("%d+")) or 16
+    local jumpValue = tonumber(JumpLabel.Text:match("%d+")) or 50
+    
+    local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = speedValue
+        humanoid.JumpPower = jumpValue
+    end
+end
 
 -- Auto Farm Page
 local AutoFarmPage = TabPages["Auto Farm"]
