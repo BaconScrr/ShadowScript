@@ -508,17 +508,218 @@ ResetButton.MouseLeave:Connect(function()
     ResetButton.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
 end)
 
+-- Функции для обновления значений слайдеров
+local function updateSpeedSlider(value)
+    -- Ограничиваем значение от 0 до 1
+    local normalizedValue = math.clamp(value, 0, 1)
+    
+    -- Обновляем визуальные элементы
+    speedSliderTrack.Size = UDim2.new(normalizedValue, 0, 1, 0)
+    speedSliderButton.Position = UDim2.new(normalizedValue, -10, 0.5, -10)
+    
+    -- Обновляем текст (от 1 до 200)
+    local speedValue = math.floor(1 + normalizedValue * 199)
+    SpeedLabel.Text = "Speed: " .. speedValue
+end
+
+local function updateJumpSlider(value)
+    -- Ограничиваем значение от 0 до 1
+    local normalizedValue = math.clamp(value, 0, 1)
+    
+    -- Обновляем визуальные элементы
+    jumpSliderTrack.Size = UDim2.new(normalizedValue, 0, 1, 0)
+    jumpSliderButton.Position = UDim2.new(normalizedValue, -10, 0.5, -10)
+    
+    -- Обновляем текст (от 1 до 200)
+    local jumpValue = math.floor(1 + normalizedValue * 199)
+    JumpLabel.Text = "Jump: " .. jumpValue
+end
+
+-- Переменные для отслеживания перетаскивания
+local draggingSpeed = false
+local draggingJump = false
+local currentTouchId = nil
+
+-- Функции для работы со слайдерами (работают на ПК и телефоне)
+local function beginDrag(sliderType, input)
+    -- Проверяем тип ввода
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        -- Для мыши
+        if sliderType == "speed" then
+            draggingSpeed = true
+        else
+            draggingJump = true
+        end
+        return true
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        -- Для телефона
+        if currentTouchId == nil then
+            currentTouchId = input
+            if sliderType == "speed" then
+                draggingSpeed = true
+            else
+                draggingJump = true
+            end
+            return true
+        end
+    end
+    return false
+end
+
+local function endDrag(sliderType, input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if sliderType == "speed" then
+            draggingSpeed = false
+        else
+            draggingJump = false
+        end
+        currentTouchId = nil
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        -- Проверяем, что это тот же тач
+        if currentTouchId == input then
+            if sliderType == "speed" then
+                draggingSpeed = false
+            else
+                draggingJump = false
+            end
+            currentTouchId = nil
+        end
+    end
+end
+
+local function updateSliderPosition(sliderType, input)
+    -- Проверяем, какой слайдер активен
+    local isDragging = false
+    local sliderFrame = nil
+    local updateFunction = nil
+    
+    if sliderType == "speed" then
+        isDragging = draggingSpeed
+        sliderFrame = speedSliderFrame
+        updateFunction = updateSpeedSlider
+    else
+        isDragging = draggingJump
+        sliderFrame = jumpSliderFrame
+        updateFunction = updateJumpSlider
+    end
+    
+    if not isDragging then return end
+    
+    -- Для тача проверяем, что это тот же тач
+    if input.UserInputType == Enum.UserInputType.Touch and currentTouchId ~= input then
+        return
+    end
+    
+    -- Вычисляем относительную позицию
+    local relativeX = (input.Position.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X
+    updateFunction(relativeX)
+end
+
+-- Обработчики для Speed Slider
+speedSliderButton.InputBegan:Connect(function(input)
+    if beginDrag("speed", input) then
+        playButtonSound()
+    end
+end)
+
+speedSliderButton.InputEnded:Connect(function(input)
+    endDrag("speed", input)
+end)
+
+speedSliderFrame.InputBegan:Connect(function(input)
+    if beginDrag("speed", input) then
+        playButtonSound()
+        updateSliderPosition("speed", input)
+    end
+end)
+
+speedSliderFrame.InputEnded:Connect(function(input)
+    endDrag("speed", input)
+end)
+
+-- Обработчики для Jump Slider
+jumpSliderButton.InputBegan:Connect(function(input)
+    if beginDrag("jump", input) then
+        playButtonSound()
+    end
+end)
+
+jumpSliderButton.InputEnded:Connect(function(input)
+    endDrag("jump", input)
+end)
+
+jumpSliderFrame.InputBegan:Connect(function(input)
+    if beginDrag("jump", input) then
+        playButtonSound()
+        updateSliderPosition("jump", input)
+    end
+end)
+
+jumpSliderFrame.InputEnded:Connect(function(input)
+    endDrag("jump", input)
+end)
+
+-- Обработка перемещения
+Services.UserInputService.InputChanged:Connect(function(input)
+    if draggingSpeed then
+        updateSliderPosition("speed", input)
+    end
+    if draggingJump then
+        updateSliderPosition("jump", input)
+    end
+end)
+
+-- Обработка окончания тача
+Services.UserInputService.TouchEnded:Connect(function(input)
+    if currentTouchId == input then
+        if draggingSpeed then
+            endDrag("speed", input)
+        end
+        if draggingJump then
+            endDrag("jump", input)
+        end
+    end
+end)
+
+-- Улучшаем отзывчивость для телефона
+speedSliderButton.Active = true
+speedSliderButton.Selectable = true
+speedSliderFrame.Active = true
+
+jumpSliderButton.Active = true
+jumpSliderButton.Selectable = true
+jumpSliderFrame.Active = true
+
 -- Функция сброса слайдеров
 ResetButton.MouseButton1Click:Connect(function()
     -- Сброс Speed слайдера
-    speedSliderTrack.Size = UDim2.new(0.08, 0, 1, 0)
-    speedSliderButton.Position = UDim2.new(0.08, -10, 0.5, -10)
-    SpeedLabel.Text = "Speed: 16"
-    
-    -- Сброс Jump слайдера
-    jumpSliderTrack.Size = UDim2.new(0.25, 0, 1, 0)
-    jumpSliderButton.Position = UDim2.new(0.25, -10, 0.5, -10)
-    JumpLabel.Text = "Jump: 50"
+    updateSpeedSlider(0.075) -- 16/200 ≈ 0.08
+    updateJumpSlider(0.246)  -- 50/200 ≈ 0.25
+end)
+
+-- Эффекты при наведении на кнопки слайдеров (только для ПК)
+speedSliderButton.MouseEnter:Connect(function()
+    if not draggingSpeed then
+        speedSliderButton.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+    end
+end)
+
+speedSliderButton.MouseLeave:Connect(function()
+    if not draggingSpeed then
+        speedSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end)
+
+jumpSliderButton.MouseEnter:Connect(function()
+    if not draggingJump then
+        jumpSliderButton.BackgroundColor3 = Color3.fromRGB(230, 230, 230)
+    end
+end)
+
+jumpSliderButton.MouseLeave:Connect(function()
+    if not draggingJump then
+        jumpSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    end
 end)
 
 -- Auto Farm Page
