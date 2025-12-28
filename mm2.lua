@@ -2455,6 +2455,363 @@ end, 2)
 
 createTeleportButton("Grab Gun", GrabGunRemote, 3)
 
+-- GunDrop Button Toggle
+local GunDropButtonContainer = createUIElement("Frame", TeleportButtonsContainer, {
+    BackgroundColor3 = Color3.fromRGB(20,20,20),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(0.9, 0, 0, 50),
+    Position = UDim2.new(0.05, 0, 0, 280), -- После кнопки Grab Gun
+    LayoutOrder = 4
+})
+
+createUIElement("UICorner", GunDropButtonContainer, {CornerRadius = UDim.new(0, 10)})
+createUIElement("UIStroke", GunDropButtonContainer, {
+    Color = Color3.fromRGB(230,57,51),
+    Thickness = 1.8
+})
+
+createUIElement("TextLabel", GunDropButtonContainer, {
+    Size = UDim2.new(0.6, 0, 1, 0),
+    Position = UDim2.new(0, 10, 0, 0),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    Text = "GunDrop Button",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+local GunDropButtonToggle = createUIElement("TextButton", GunDropButtonContainer, {
+    Size = UDim2.new(0, 60, 0, 30),
+    Position = UDim2.new(1, -70, 0.5, -15),
+    BackgroundColor3 = Color3.fromRGB(50, 50, 50),
+    BorderSizePixel = 0,
+    Text = "OFF",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    Font = Enum.Font.GothamBold,
+    TextSize = 12,
+    AutoButtonColor = false
+})
+
+GunDropButtonToggle.MouseButton1Click:Connect(playButtonSound)
+
+createUIElement("UICorner", GunDropButtonToggle, {CornerRadius = UDim.new(0, 15)})
+local GunDropButtonStroke = createUIElement("UIStroke", GunDropButtonToggle, {
+    Color = Color3.fromRGB(100, 100, 100),
+    Thickness = 2
+})
+
+-- Состояние GunDrop Button
+local GunDropButtonEnabled = false
+local GunDropButtonUI = nil
+local savedGunDropPosition = UDim2.new(0, 118, 0, 46) -- Позиция по умолчанию
+
+-- Функция для сохранения позиции
+local function saveGunDropPosition(position)
+    savedGunDropPosition = position
+end
+
+-- Функция для создания GunDrop Button UI
+local function createGunDropButtonUI()
+    if GunDropButtonUI then
+        GunDropButtonUI:Destroy()
+        GunDropButtonUI = nil
+    end
+    
+    -- Создаем ScreenGui
+    local ScreenGui_1 = Instance.new("ScreenGui")
+    ScreenGui_1.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    ScreenGui_1.Name = "GunDropUI"
+    ScreenGui_1.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui_1.DisplayOrder = 5  -- Средний приоритет отображения
+    ScreenGui_1.ResetOnSpawn = false -- Важно: не сбрасывать при респавне
+
+    -- Создаем Frame
+    local Frame_2 = Instance.new("Frame")
+    Frame_2.Parent = ScreenGui_1
+    Frame_2.Name = "GunDropButton"
+    Frame_2.BorderSizePixel = 0
+    Frame_2.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    Frame_2.BackgroundTransparency = 0.08
+    Frame_2.Size = UDim2.new(0, 44, 0, 42)
+    Frame_2.Position = savedGunDropPosition -- Используем сохраненную позицию
+    Frame_2.ZIndex = 1
+
+    -- Создаем UICorner
+    local UICorner_3 = Instance.new("UICorner")
+    UICorner_3.Parent = Frame_2
+    UICorner_3.CornerRadius = UDim.new(1, 0)
+
+    -- Добавляем обводку
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(230, 57, 51)
+    UIStroke.Thickness = 1.8
+    UIStroke.Transparency = 0.05
+    UIStroke.Parent = Frame_2
+    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+    -- Добавляем текст "Gun Drop" внутри круга
+    local GunDropText = Instance.new("TextLabel")
+    GunDropText.Parent = Frame_2
+    GunDropText.Name = "GunDropText"
+    GunDropText.BackgroundTransparency = 1
+    GunDropText.Size = UDim2.new(1, 0, 1, 0)
+    GunDropText.Position = UDim2.new(0, 0, 0, 0)
+    GunDropText.Font = Enum.Font.GothamBold
+    GunDropText.Text = "Gun\nDrop"
+    GunDropText.TextColor3 = Color3.fromRGB(230, 57, 51)
+    GunDropText.TextSize = 10
+    GunDropText.TextStrokeTransparency = 1
+    GunDropText.TextXAlignment = Enum.TextXAlignment.Center
+    GunDropText.TextYAlignment = Enum.TextYAlignment.Center
+    GunDropText.ZIndex = 2
+
+    -- Получаем UserInputService для перетаскивания
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    -- Переменные для перетаскивания
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+    local canDrag = false
+    local dragDelay = 0.1 -- Небольшая задержка
+    local holdTime = 0
+    local holding = false
+    local originalBackgroundColor = Frame_2.BackgroundColor3
+
+    -- Прозрачный DRAG BAR на весь элемент (включая текст)
+    local DragFrame = Instance.new("Frame")
+    DragFrame.Parent = Frame_2
+    DragFrame.BackgroundTransparency = 1
+    DragFrame.Size = UDim2.new(1, 0, 1, 0) -- Весь элемент
+    DragFrame.Position = UDim2.new(0, 0, 0, 0)
+    DragFrame.Active = true
+    DragFrame.Selectable = true
+    DragFrame.ZIndex = 100
+
+    -- Также делаем текст неактивным для ввода
+    GunDropText.Active = false
+
+    -- Функция для обновления позиции при перетаскивании
+    local function updateDrag(input)
+        local delta = input.Position - dragStart
+        local newPosition = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+        Frame_2.Position = newPosition
+        
+        -- Сохраняем позицию при каждом изменении
+        saveGunDropPosition(newPosition)
+    end
+
+    -- Функция для изменения яркости цвета
+    local function lightenColor(color, amount)
+        amount = amount or 0.2
+        return Color3.new(
+            math.min(color.R + amount, 1),
+            math.min(color.G + amount, 1),
+            math.min(color.B + amount, 1)
+        )
+    end
+
+    -- Обработчик начала удержания (на DragFrame - на всей площади кнопки)
+    DragFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            
+            holding = true
+            dragStart = input.Position
+            startPos = Frame_2.Position
+            holdTime = 0
+            canDrag = false
+            
+            -- Делаем фон ярче при нажатии
+            Frame_2.BackgroundColor3 = lightenColor(originalBackgroundColor, 0.15)
+            
+            -- Запускаем таймер для небольшой задержки
+            local connection
+            connection = RunService.Heartbeat:Connect(function(deltaTime)
+                if not holding then
+                    connection:Disconnect()
+                    return
+                end
+                
+                holdTime = holdTime + deltaTime
+                
+                -- Через 0.1 секунды можно перетаскивать
+                if holdTime >= dragDelay and not canDrag then
+                    canDrag = true
+                    dragging = true
+                    connection:Disconnect()
+                end
+            end)
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    holding = false
+                    dragging = false
+                    canDrag = false
+                    -- Возвращаем исходный цвет фона
+                    Frame_2.BackgroundColor3 = originalBackgroundColor
+                    
+                    -- Финальное сохранение позиции
+                    saveGunDropPosition(Frame_2.Position)
+                end
+            end)
+        end
+    end)
+
+    -- Обработчик движения мыши/тача
+    DragFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    -- Обработчик изменения ввода (для перетаскивания)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging and canDrag then
+            updateDrag(input)
+        end
+    end)
+
+    -- Возвращаем исходный цвет если отпустили не на DragFrame
+    DragFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            Frame_2.BackgroundColor3 = originalBackgroundColor
+            -- Сохраняем позицию при отпускании
+            saveGunDropPosition(Frame_2.Position)
+        end
+    end)
+
+    -- Добавляем функциональность кнопки (Grab Gun при нажатии)
+    local function onGunDropClick()
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            for _, obj in pairs(workspace:GetChildren()) do
+                if obj:IsA("Model") and obj:FindFirstChild("GunDrop") then
+                    local gun = obj.GunDrop
+                    local hrp = Player.Character.HumanoidRootPart
+                    firetouchinterest(hrp, gun, 0)
+                    task.wait(0.1)
+                    firetouchinterest(hrp, gun, 1)
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    -- Обработчик клика на кнопку
+    DragFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            -- Запускаем таймер для определения короткого клика
+            local clickStartTime = tick()
+            local wasDragged = false
+            local startClickPos = Frame_2.Position
+            
+            local moveConnection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    moveConnection:Disconnect()
+                    local clickDuration = tick() - clickStartTime
+                    
+                    -- Если это был короткий клик (менее 0.1 сек) и не было перетаскивания
+                    if clickDuration < 0.1 and not wasDragged and startClickPos == Frame_2.Position then
+                        playButtonSound()
+                        onGunDropClick()
+                    end
+                elseif input.UserInputState == Enum.UserInputState.Change then
+                    -- Если началось движение - это перетаскивание
+                    if not wasDragged then
+                        wasDragged = true
+                    end
+                end
+            end)
+        end
+    end)
+
+    -- Эффект при наведении (только для ПК)
+    DragFrame.MouseEnter:Connect(function()
+        if not holding then
+            Frame_2.BackgroundColor3 = lightenColor(originalBackgroundColor, 0.1)
+        end
+    end)
+
+    DragFrame.MouseLeave:Connect(function()
+        if not holding then
+            Frame_2.BackgroundColor3 = originalBackgroundColor
+        end
+    end)
+
+    GunDropButtonUI = ScreenGui_1
+    return ScreenGui_1
+end
+
+-- Обработчик тоггла
+GunDropButtonToggle.MouseButton1Click:Connect(function()
+    GunDropButtonEnabled = not GunDropButtonEnabled
+    
+    if GunDropButtonEnabled then
+        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
+        GunDropButtonToggle.Text = "ON"
+        GunDropButtonStroke.Color = Color3.fromRGB(200, 50, 47)
+        createGunDropButtonUI()
+    else
+        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        GunDropButtonToggle.Text = "OFF"
+        GunDropButtonStroke.Color = Color3.fromRGB(100, 100, 100)
+        if GunDropButtonUI then
+            GunDropButtonUI:Destroy()
+            GunDropButtonUI = nil
+        end
+    end
+end)
+
+-- Hover эффекты для тоггла
+GunDropButtonToggle.MouseEnter:Connect(function()
+    if not GunDropButtonEnabled then
+        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end
+end)
+
+GunDropButtonToggle.MouseLeave:Connect(function()
+    if not GunDropButtonEnabled then
+        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end
+end)
+
+-- Очистка при смене персонажа
+Player.CharacterAdded:Connect(function()
+    if GunDropButtonEnabled and GunDropButtonUI then
+        -- Сохраняем текущую позицию перед уничтожением
+        local currentFrame = GunDropButtonUI:FindFirstChild("GunDropButton")
+        if currentFrame then
+            savedGunDropPosition = currentFrame.Position
+        end
+        
+        -- Пересоздаем UI при смене персонажа
+        GunDropButtonUI:Destroy()
+        createGunDropButtonUI()
+    end
+end)
+
+-- Также сохраняем позицию при закрытии игры (опционально)
+game:BindToClose(function()
+    if GunDropButtonEnabled and GunDropButtonUI then
+        local currentFrame = GunDropButtonUI:FindFirstChild("GunDropButton")
+        if currentFrame then
+            saveGunDropPosition(currentFrame.Position)
+        end
+    end
+end)
+
 createTeleportButton("Teleport to Map Spawn", TeleportToMap, 4)
 
 createTeleportButton("Teleport to Random Map", Teleport_to_map, 5)
