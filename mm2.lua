@@ -44,8 +44,8 @@ local function playButtonSound()
     -- Создаем новый звук
     local success, sound = pcall(function()
         local sound = Instance.new("Sound")
-        sound.SoundId = "rbxassetid://140910211"
-        sound.Volume = 2.5
+        sound.SoundId = "rbxassetid://17161216230"
+        sound.Volume = 1.8
         sound.Looped = false
         
         -- Пробуем разные родители
@@ -1542,6 +1542,45 @@ GunDropEspToggle.MouseLeave:Connect(function()
     end
 end)
 
+-- Custom ShiftLock Container
+local ShiftLockContainer = createUIElement("Frame", VisualPage, {
+    BackgroundColor3 = Color3.fromRGB(20,20,20),
+    BackgroundTransparency = 0.1,
+    Size = UDim2.new(1, -10, 0, 120), -- Высота для будущих элементов
+    Position = UDim2.new(0, 0, 0, 400) -- Позиция после GunDrop ESP
+})
+
+createUIElement("UICorner", ShiftLockContainer, {CornerRadius = UDim.new(0, 10)})
+createUIElement("UIStroke", ShiftLockContainer, {
+    Color = Color3.fromRGB(230,57,51),
+    Thickness = 1.8
+})
+
+-- Заголовок Custom ShiftLock
+createUIElement("TextLabel", ShiftLockContainer, {
+    Size = UDim2.new(1, -20, 0, 30),
+    Position = UDim2.new(0, 10, 0, 0),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    Text = "Custom ShiftLock",
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Left
+})
+
+-- Сообщение о том, что контейнер пустой (можно убрать в будущем)
+local EmptyMessage = createUIElement("TextLabel", ShiftLockContainer, {
+    Size = UDim2.new(1, -20, 0, 80),
+    Position = UDim2.new(0, 10, 0, 35),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.Gotham,
+    Text = "Hi\n",
+    TextColor3 = Color3.fromRGB(180, 180, 180),
+    TextSize = 14,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top
+})
+
 -- Emotes Page
 local EmotesPage = TabPages["Emotes"]
 
@@ -1573,18 +1612,11 @@ local Emotes = {
     "headless"
 }
 
--- Функция для воспроизведения эмота
-local function playEmote(emoteName)
-    pcall(function()
-        PlayEmoteRemote:Fire(emoteName)
-    end)
-end
-
--- Контейнер для кнопок эмотов
+-- Контейнер для кнопок эмотов (УВЕЛИЧЕНА ВЫСОТА)
 local EmotesContainer = createUIElement("Frame", EmotesPage, {
     BackgroundColor3 = Color3.fromRGB(20,20,20),
     BackgroundTransparency = 0.1,
-    Size = UDim2.new(1, -10, 1, -50),
+    Size = UDim2.new(1, -10, 0, 325),  -- ↑ УВЕЛИЧЕНО С 300 ДО 350 ↑
     Position = UDim2.new(0, 0, 0, 40)
 })
 
@@ -1594,8 +1626,35 @@ createUIElement("UIStroke", EmotesContainer, {
     Thickness = 1.8
 })
 
+-- Заголовок Emotes внутри контейнера
+createUIElement("TextLabel", EmotesContainer, {
+    Size = UDim2.new(1, -20, 0, 30),
+    Position = UDim2.new(0, 10, 0, 5),
+    BackgroundTransparency = 1,
+    Font = Enum.Font.GothamBold,
+    Text = "Emotes",
+    TextColor3 = Color3.fromRGB(230, 57, 51),
+    TextSize = 16,
+    TextXAlignment = Enum.TextXAlignment.Center
+})
+
+-- Разделитель под заголовком
+createUIElement("Frame", EmotesContainer, {
+    BackgroundColor3 = Color3.fromRGB(230, 57, 51),
+    BorderSizePixel = 0,
+    Size = UDim2.new(0.8, 0, 0, 1),
+    Position = UDim2.new(0.1, 0, 0, 35)
+})
+
+-- Контейнер для сетки кнопок эмотов (растягивается вниз)
+local EmotesGridContainer = createUIElement("Frame", EmotesContainer, {
+    BackgroundTransparency = 1,
+    Size = UDim2.new(1, -20, 1, -50),  -- Занимает всю доступную высоту
+    Position = UDim2.new(0, 10, 0, 45)
+})
+
 -- Создаем UIListLayout для кнопок
-local EmotesGrid = createUIElement("UIGridLayout", EmotesContainer, {
+local EmotesGrid = createUIElement("UIGridLayout", EmotesGridContainer, {
     CellSize = UDim2.new(0, 110, 0, 40),
     CellPadding = UDim2.new(0, 10, 0, 10),
     StartCorner = Enum.StartCorner.TopLeft,
@@ -1604,13 +1663,19 @@ local EmotesGrid = createUIElement("UIGridLayout", EmotesContainer, {
     SortOrder = Enum.SortOrder.LayoutOrder
 })
 
--- Увеличиваем контейнер, чтобы вместить все кнопки
-EmotesContainer.Size = UDim2.new(1, -10, 0, 300)
+-- Убираем автоматическое изменение размера (теперь фиксированный размер)
 EmotesContainer.AutomaticSize = Enum.AutomaticSize.None
+
+-- Функция для воспроизведения эмота
+local function playEmote(emoteName)
+    pcall(function()
+        PlayEmoteRemote:Fire(emoteName)
+    end)
+end
 
 -- Создаем кнопки для каждого эмота
 for i, emoteName in ipairs(Emotes) do
-    local EmoteButton = createUIElement("TextButton", EmotesContainer, {
+    local EmoteButton = createUIElement("TextButton", EmotesGridContainer, {
         Size = UDim2.new(0, 110, 0, 40),
         BackgroundColor3 = Color3.fromRGB(230, 57, 51),
         BorderSizePixel = 0,
@@ -2522,385 +2587,6 @@ createTeleportButton("Teleport to Sheriff", function()
 end, 2)
 
 createTeleportButton("Grab Gun", GrabGunRemote, 3)
-
--- GunDrop Button Toggle
-local GunDropButtonContainer = createUIElement("Frame", TeleportButtonsContainer, {
-    BackgroundColor3 = Color3.fromRGB(20,20,20),
-    BackgroundTransparency = 0.1,
-    Size = UDim2.new(0.9, 0, 0, 50),
-    Position = UDim2.new(0.05, 0, 0, 280),
-    LayoutOrder = 4
-})
-
-createUIElement("UICorner", GunDropButtonContainer, {CornerRadius = UDim.new(0, 10)})
-createUIElement("UIStroke", GunDropButtonContainer, {
-    Color = Color3.fromRGB(230,57,51),
-    Thickness = 1.8
-})
-
-createUIElement("TextLabel", GunDropButtonContainer, {
-    Size = UDim2.new(0.6, 0, 1, 0),
-    Position = UDim2.new(0, 10, 0, 0),
-    BackgroundTransparency = 1,
-    Font = Enum.Font.GothamBold,
-    Text = "GunDrop Button",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    TextSize = 14,
-    TextXAlignment = Enum.TextXAlignment.Left
-})
-
-local GunDropButtonToggle = createUIElement("TextButton", GunDropButtonContainer, {
-    Size = UDim2.new(0, 60, 0, 30),
-    Position = UDim2.new(1, -70, 0.5, -15),
-    BackgroundColor3 = Color3.fromRGB(50, 50, 50),
-    BorderSizePixel = 0,
-    Text = "OFF",
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    AutoButtonColor = false
-})
-
-GunDropButtonToggle.MouseButton1Click:Connect(playButtonSound)
-
-createUIElement("UICorner", GunDropButtonToggle, {CornerRadius = UDim.new(0, 15)})
-local GunDropButtonStroke = createUIElement("UIStroke", GunDropButtonToggle, {
-    Color = Color3.fromRGB(100, 100, 100),
-    Thickness = 2
-})
-
--- Состояние GunDrop Button
-local GunDropButtonEnabled = false
-local GunDropButtonUI = nil
-local savedGunDropPosition = UDim2.new(0, 118, 0, 46)
-
--- Функция для сохранения позиции
-local function saveGunDropPosition(position)
-    savedGunDropPosition = position
-end
-
--- Функция для создания GunDrop Button UI
-local function createGunDropButtonUI()
-    if GunDropButtonUI then
-        pcall(function()
-            GunDropButtonUI:Destroy()
-        end)
-        GunDropButtonUI = nil
-    end
-    
-    -- Создаем ScreenGui
-    local ScreenGui_1 = Instance.new("ScreenGui")
-    ScreenGui_1.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-    ScreenGui_1.Name = "GunDropUI"
-    ScreenGui_1.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui_1.DisplayOrder = 5
-    ScreenGui_1.ResetOnSpawn = false
-
-    -- Создаем Frame
-    local Frame_2 = Instance.new("Frame")
-    Frame_2.Parent = ScreenGui_1
-    Frame_2.Name = "GunDropButton"
-    Frame_2.BorderSizePixel = 0
-    Frame_2.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    Frame_2.BackgroundTransparency = 0.08
-    Frame_2.Size = UDim2.new(0, 44, 0, 42)
-    Frame_2.Position = savedGunDropPosition
-    Frame_2.ZIndex = 1
-
-    -- Создаем UICorner
-    local UICorner_3 = Instance.new("UICorner")
-    UICorner_3.Parent = Frame_2
-    UICorner_3.CornerRadius = UDim.new(1, 0)
-
-    -- Добавляем обводку
-    local UIStroke = Instance.new("UIStroke")
-    UIStroke.Color = Color3.fromRGB(230, 57, 51)
-    UIStroke.Thickness = 1.8
-    UIStroke.Transparency = 0.05
-    UIStroke.Parent = Frame_2
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-    -- Добавляем текст "Gun Drop"
-    local GunDropText = Instance.new("TextLabel")
-    GunDropText.Parent = Frame_2
-    GunDropText.Name = "GunDropText"
-    GunDropText.BackgroundTransparency = 1
-    GunDropText.Size = UDim2.new(1, 0, 1, 0)
-    GunDropText.Position = UDim2.new(0, 0, 0, 0)
-    GunDropText.Font = Enum.Font.GothamBold
-    GunDropText.Text = "Gun\nDrop"
-    GunDropText.TextColor3 = Color3.fromRGB(230, 57, 51)
-    GunDropText.TextSize = 10
-    GunDropText.TextStrokeTransparency = 1
-    GunDropText.TextXAlignment = Enum.TextXAlignment.Center
-    GunDropText.TextYAlignment = Enum.TextYAlignment.Center
-    GunDropText.ZIndex = 2
-
-    -- Получаем сервисы
-    local UserInputService = game:GetService("UserInputService")
-    local RunService = game:GetService("RunService")
-
-    -- Переменные для перетаскивания
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-    local canDrag = false
-    local dragDelay = 0.1
-    local holdTime = 0
-    local holding = false
-    local originalBackgroundColor = Frame_2.BackgroundColor3
-
-    -- Прозрачный DRAG BAR
-    local DragFrame = Instance.new("Frame")
-    DragFrame.Parent = Frame_2
-    DragFrame.BackgroundTransparency = 1
-    DragFrame.Size = UDim2.new(1, 0, 1, 0)
-    DragFrame.Position = UDim2.new(0, 0, 0, 0)
-    DragFrame.Active = true
-    DragFrame.Selectable = true
-    DragFrame.ZIndex = 100
-
-    GunDropText.Active = false
-
-    -- Функция для обновления позиции
-    local function updateDrag(input)
-        local delta = input.Position - dragStart
-        local newPosition = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-        Frame_2.Position = newPosition
-        saveGunDropPosition(newPosition)
-    end
-
-    -- Функция для изменения яркости цвета
-    local function lightenColor(color, amount)
-        amount = amount or 0.2
-        return Color3.new(
-            math.min(color.R + amount, 1),
-            math.min(color.G + amount, 1),
-            math.min(color.B + amount, 1)
-        )
-    end
-
-    -- Обработчик начала удержания
-    DragFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            
-            holding = true
-            dragStart = input.Position
-            startPos = Frame_2.Position
-            holdTime = 0
-            canDrag = false
-            
-            Frame_2.BackgroundColor3 = lightenColor(originalBackgroundColor, 0.15)
-            
-            local connection
-            connection = RunService.Heartbeat:Connect(function(deltaTime)
-                if not holding then
-                    if connection then
-                        connection:Disconnect()
-                    end
-                    return
-                end
-                
-                holdTime = holdTime + deltaTime
-                
-                if holdTime >= dragDelay and not canDrag then
-                    canDrag = true
-                    dragging = true
-                    if connection then
-                        connection:Disconnect()
-                    end
-                end
-            end)
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    holding = false
-                    dragging = false
-                    canDrag = false
-                    Frame_2.BackgroundColor3 = originalBackgroundColor
-                    saveGunDropPosition(Frame_2.Position)
-                end
-            end)
-        end
-    end)
-
-    -- Обработчик движения
-    DragFrame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-
-    -- Обработчик изменения ввода
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging and canDrag then
-            updateDrag(input)
-        end
-    end)
-
-    -- Возвращаем исходный цвет
-    DragFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            Frame_2.BackgroundColor3 = originalBackgroundColor
-            saveGunDropPosition(Frame_2.Position)
-        end
-    end)
-
-    -- Функция для Grab Gun
-    local function onGunDropClick()
-        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-            for _, obj in pairs(workspace:GetChildren()) do
-                if obj:IsA("Model") and obj:FindFirstChild("GunDrop") then
-                    local gun = obj.GunDrop
-                    local hrp = Player.Character.HumanoidRootPart
-                    firetouchinterest(hrp, gun, 0)
-                    task.wait(0.1)
-                    firetouchinterest(hrp, gun, 1)
-                    return true
-                end
-            end
-        end
-        return false
-    end
-  
-  -- Обработчик клика для круглой кнопки GunDrop
-DragFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        local clickStartTime = tick()
-        local wasDragged = false
-        local startClickPos = Frame_2.Position
-        
-        local moveConnection
-        moveConnection = input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                if moveConnection then
-                    moveConnection:Disconnect()
-                end
-                local clickDuration = tick() - clickStartTime
-                
-                if clickDuration < 0.1 and not wasDragged and startClickPos == Frame_2.Position then
-                    -- ВОТ ЗДЕСЬ ДОБАВЛЯЕМ ЗВУК:
-                    playButtonSound()  -- ЗВУК ПРИ НАЖАТИИ НА КРУГЛУЮ КНОПКУ
-                    
-                    -- Выполняем действие (подбираем оружие)
-                    onGunDropClick()
-                end
-            elseif input.UserInputState == Enum.UserInputState.Change then
-                if not wasDragged then
-                    wasDragged = true
-                end
-            end
-        end)
-    end
-end)
-
-    -- Обработчик клика
-    DragFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            local clickStartTime = tick()
-            local wasDragged = false
-            local startClickPos = Frame_2.Position
-            
-            local moveConnection
-            moveConnection = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    if moveConnection then
-                        moveConnection:Disconnect()
-                    end
-                    local clickDuration = tick() - clickStartTime
-                    
-                    if clickDuration < 0.1 and not wasDragged and startClickPos == Frame_2.Position then
-                        playButtonSound()
-                        onGunDropClick()
-                    end
-                elseif input.UserInputState == Enum.UserInputState.Change then
-                    if not wasDragged then
-                        wasDragged = true
-                    end
-                end
-            end)
-        end
-    end)
-
-    -- Эффект при наведении
-    DragFrame.MouseEnter:Connect(function()
-        if not holding then
-            Frame_2.BackgroundColor3 = lightenColor(originalBackgroundColor, 0.1)
-        end
-    end)
-
-    DragFrame.MouseLeave:Connect(function()
-        if not holding then
-            Frame_2.BackgroundColor3 = originalBackgroundColor
-        end
-    end)
-
-    GunDropButtonUI = ScreenGui_1
-    return ScreenGui_1
-end
-
--- Обработчик тоггла
-GunDropButtonToggle.MouseButton1Click:Connect(function()
-    GunDropButtonEnabled = not GunDropButtonEnabled
-    
-    if GunDropButtonEnabled then
-        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(230, 57, 51)
-        GunDropButtonToggle.Text = "ON"
-        GunDropButtonStroke.Color = Color3.fromRGB(200, 50, 47)
-        createGunDropButtonUI()
-    else
-        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        GunDropButtonToggle.Text = "OFF"
-        GunDropButtonStroke.Color = Color3.fromRGB(100, 100, 100)
-        if GunDropButtonUI then
-            pcall(function()
-                GunDropButtonUI:Destroy()
-            end)
-            GunDropButtonUI = nil
-        end
-    end
-end)
-
--- Hover эффекты
-GunDropButtonToggle.MouseEnter:Connect(function()
-    if not GunDropButtonEnabled then
-        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    end
-end)
-
-GunDropButtonToggle.MouseLeave:Connect(function()
-    if not GunDropButtonEnabled then
-        GunDropButtonToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    end
-end)
-
--- Очистка при смене персонажа
-Player.CharacterAdded:Connect(function()
-    if GunDropButtonEnabled and GunDropButtonUI then
-        local currentFrame = GunDropButtonUI:FindFirstChild("GunDropButton")
-        if currentFrame then
-            savedGunDropPosition = currentFrame.Position
-        end
-        
-        pcall(function()
-            GunDropButtonUI:Destroy()
-        end)
-        createGunDropButtonUI()
-    end
-end)
-
--- Не используем BindToClose на клиенте, вместо этого сохраняем при каждом изменении
 
 createTeleportButton("Teleport to Map Spawn", TeleportToMap, 4)
 
